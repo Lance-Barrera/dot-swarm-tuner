@@ -1,0 +1,1588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dot Swarm — Tuner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* Cool, stark palette — no warmth */
+      --bg: #060608;
+      --surface: rgba(14, 14, 18, 0.75);
+      --surface-solid: #0E0E12;
+      --surface-raised: rgba(22, 22, 28, 0.8);
+      --border: rgba(255,255,255,0.07);
+      --border-hover: rgba(255,255,255,0.15);
+      --text-primary: #EAEAEF;     /* high contrast on dark */
+      --text-secondary: #8E8E9A;   /* cool mid-tone — AA pass */
+      --text-tertiary: #7C7C84;    /* 4.65:1 on surface-solid — AA pass */
+      --accent: #D0D0DA;
+      --focus-ring: rgba(255,255,255,0.45);
+      --slider-track: rgba(255,255,255,0.07);
+      --slider-fill: rgba(255,255,255,0.28);
+      --slider-thumb: #EAEAEF;
+
+      --font-mono: 'DM Mono', 'SF Mono', 'Fira Code', monospace;
+      --font-sans: 'Instrument Sans', system-ui, sans-serif;
+
+      --space-xs: 4px;
+      --space-s: 8px;
+      --space-m: 16px;
+      --space-l: 24px;
+      --space-xl: 40px;
+      --space-2xl: 64px;
+
+      --radius-s: 4px;
+      --radius-m: 8px;
+      --radius-l: 12px;
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background: var(--bg);
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Skip to content for a11y */
+    .skip-link {
+      position: absolute; top: -100px; left: 16px;
+      padding: 8px 16px; background: var(--text-primary); color: var(--bg);
+      font-family: var(--font-sans); font-size: 14px; font-weight: 600;
+      border-radius: var(--radius-s); z-index: 9999;
+      text-decoration: none;
+    }
+    .skip-link:focus { top: 16px; }
+
+    canvas {
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%; z-index: 0;
+    }
+
+    /* ── Demo Area — centered card ── */
+    .demo {
+      position: relative; z-index: 1;
+      display: flex; align-items: center; justify-content: center;
+      height: 100vh; padding: var(--space-xl);
+    }
+
+    .card {
+      width: 360px; height: 220px;
+      border-radius: var(--radius-l);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: var(--space-s);
+      cursor: default;
+      transition: border-color 0.4s ease, box-shadow 0.4s ease;
+      position: relative;
+      z-index: 2;
+      backdrop-filter: blur(16px) saturate(1.1);
+      -webkit-backdrop-filter: blur(16px) saturate(1.1);
+    }
+    .card:hover {
+      border-color: var(--border-hover);
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.04), 0 24px 48px -12px rgba(0,0,0,0.6);
+    }
+    .card-label {
+      font-family: var(--font-sans);
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      letter-spacing: -0.01em;
+      transition: color 0.3s;
+    }
+    .card:hover .card-label { color: var(--text-primary); }
+    .card-hint {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-tertiary);
+      letter-spacing: 0.03em;
+    }
+
+    .mobile-only { display: none; }
+    @media (max-width: 680px) {
+      .desktop-only { display: none; }
+      .mobile-only { display: inline; }
+    }
+
+    /* ── Control Panel ── */
+    .panel {
+      position: fixed; top: var(--space-m); right: var(--space-m);
+      z-index: 100; width: 280px;
+      max-height: calc(100vh - 32px);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-l);
+      overflow: hidden;
+      display: flex; flex-direction: column;
+      backdrop-filter: blur(20px) saturate(1.2);
+      -webkit-backdrop-filter: blur(20px) saturate(1.2);
+      box-shadow: 0 8px 32px -8px rgba(0,0,0,0.5);
+    }
+
+    .panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: var(--space-m) var(--space-l);
+      border-bottom: 1px solid var(--border);
+      cursor: pointer; user-select: none;
+      height: 48px; /* fixed height — no shift on toggle */
+    }
+    .panel-header:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: -2px;
+      border-radius: var(--radius-l) var(--radius-l) 0 0;
+    }
+    .panel-title {
+      font-family: var(--font-sans);
+      font-size: 13px; font-weight: 600;
+      color: var(--text-secondary);
+      letter-spacing: 0.02em;
+    }
+    .panel-toggle {
+      width: 24px; height: 24px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-tertiary);
+      font-size: 18px; line-height: 1;
+      transition: transform 0.3s ease;
+      margin-right: -4px; /* optical alignment with left padding */
+      transform: rotate(-90deg); /* points up — panel is expanded */
+    }
+    .panel-toggle.collapsed { transform: rotate(90deg); /* points down — panel will expand */ }
+
+    .panel-scroll {
+      overflow-y: auto; flex: 1;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.08) transparent;
+    }
+
+    .panel-body {
+      padding: var(--space-s) 0 0;
+    }
+
+    /* Sections — generous vertical rhythm */
+    .section {
+      padding: var(--space-s) var(--space-l) var(--space-m);
+    }
+    .section + .section {
+      border-top: 1px solid var(--border);
+    }
+    .section-title {
+      font-family: var(--font-mono);
+      font-size: 10px; font-weight: 400;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+      margin-bottom: var(--space-m);
+      padding-top: var(--space-xs);
+    }
+
+    /* Control rows — 8px grid rhythm */
+    .ctrl {
+      display: grid;
+      grid-template-columns: 80px 1fr 40px;
+      align-items: center;
+      gap: 0;
+      margin-bottom: 10px;
+      min-height: 28px;
+    }
+    .ctrl:last-child { margin-bottom: 0; }
+
+    /* Toggle switch */
+    .ctrl-toggle {
+      display: grid;
+      grid-template-columns: 80px 1fr;
+      align-items: center;
+      margin-bottom: 10px;
+      min-height: 28px;
+    }
+    .toggle-switch {
+      position: relative;
+      width: 32px; height: 18px;
+      background: var(--slider-track);
+      border-radius: 9px;
+      cursor: pointer;
+      border: none;
+      padding: 0;
+      transition: background 0.2s;
+    }
+    .toggle-switch[aria-checked="true"] {
+      background: rgba(255,255,255,0.25);
+    }
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: var(--text-secondary);
+      transition: transform 0.2s, background 0.2s;
+    }
+    .toggle-switch[aria-checked="true"]::after {
+      transform: translateX(14px);
+      background: var(--text-primary);
+    }
+    .toggle-switch:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
+    .ctrl-label {
+      font-size: 11px;
+      color: var(--text-secondary);
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .ctrl-value {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+
+    /* Custom range slider — WCAG compliant */
+    input[type="range"] {
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 24px; /* large hit area */
+      background: transparent;
+      cursor: pointer;
+      margin: 0;
+    }
+    input[type="range"]:focus-visible {
+      outline: none;
+    }
+    input[type="range"]:focus-visible::-webkit-slider-thumb {
+      box-shadow: 0 0 0 3px var(--focus-ring);
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 2px;
+      background: var(--slider-track);
+      border-radius: 1px;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--slider-thumb);
+      border: none;
+      margin-top: -6px;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+    }
+    input[type="range"]::-moz-range-track {
+      height: 2px;
+      background: var(--slider-track);
+      border-radius: 1px;
+      border: none;
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--slider-thumb);
+      border: none;
+      cursor: pointer;
+    }
+    input[type="range"]:focus-visible::-moz-range-thumb {
+      box-shadow: 0 0 0 3px var(--focus-ring);
+    }
+
+    /* ── Custom Color Picker ── */
+    .color-trigger {
+      display: grid;
+      grid-template-columns: 80px 1fr;
+      align-items: center;
+      margin-bottom: 10px;
+      min-height: 28px;
+      position: relative;
+    }
+    .color-swatch-btn {
+      display: flex; align-items: center; gap: 8px;
+      background: none; border: none; cursor: pointer;
+      padding: 0; font-family: var(--font-mono); font-size: 11px;
+      color: var(--text-tertiary);
+    }
+    .color-swatch-btn:focus-visible {
+      outline: 2px solid var(--focus-ring); outline-offset: 2px;
+      border-radius: 2px;
+    }
+    .color-swatch {
+      width: 28px; height: 16px;
+      border-radius: 3px;
+      border: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .color-popover {
+      display: none;
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 80px;
+      width: calc(100% - 80px + 16px);
+      z-index: 300;
+      background: var(--surface-raised);
+      border: 1px solid var(--border-hover);
+      border-radius: var(--radius-m);
+      padding: 12px;
+      box-shadow: 0 12px 32px -4px rgba(0,0,0,0.7);
+      overflow: hidden;
+    }
+    .color-popover.open { display: block; }
+
+    /* SB Area */
+    .cp-sb-area {
+      position: relative;
+      width: 100%; height: 100px;
+      border-radius: var(--radius-s);
+      cursor: crosshair;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .cp-sb-area::after {
+      content: ''; position: absolute; inset: 0;
+      border-radius: var(--radius-s);
+      border: 1px solid rgba(255,255,255,0.06);
+      pointer-events: none;
+    }
+    .cp-sb-handle {
+      position: absolute;
+      width: 12px; height: 12px;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(0,0,0,0.2);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    /* Hue strip */
+    .cp-hue-wrap {
+      position: relative;
+      width: 100%; height: 14px;
+      border-radius: 7px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      background: linear-gradient(to right,
+        #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
+    }
+    .cp-hue-wrap::after {
+      content: ''; position: absolute; inset: 0;
+      border-radius: 7px;
+      border: 1px solid rgba(255,255,255,0.08);
+      pointer-events: none;
+    }
+    .cp-hue-handle {
+      position: absolute; top: 50%;
+      width: 10px; height: 14px;
+      border: 2px solid #fff;
+      border-radius: 3px;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.3);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      background: transparent;
+    }
+
+    /* Swatches */
+    .cp-swatches {
+      display: flex; gap: 4px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+    .cp-swatch {
+      width: 18px; height: 18px;
+      border-radius: 3px;
+      border: 1px solid rgba(255,255,255,0.1);
+      cursor: pointer;
+      padding: 0;
+      transition: border-color 0.15s, transform 0.15s;
+    }
+    .cp-swatch:hover {
+      border-color: rgba(255,255,255,0.35);
+      transform: scale(1.15);
+    }
+    .cp-swatch:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 1px;
+    }
+
+    /* Hex input */
+    .cp-hex-row {
+      display: flex; align-items: center; gap: 6px;
+    }
+    .cp-hex-label {
+      font-size: 10px; color: var(--text-tertiary);
+      flex-shrink: 0;
+    }
+    .cp-hex-input {
+      flex: 1;
+      min-width: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-s);
+      padding: 4px 8px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-primary);
+      outline: none;
+      text-transform: uppercase;
+    }
+    .cp-hex-input:focus-visible {
+      border-color: var(--border-hover);
+      box-shadow: 0 0 0 2px var(--focus-ring);
+    }
+
+    /* Actions */
+    .panel-actions {
+      padding: var(--space-m) var(--space-l);
+      border-top: 1px solid var(--border);
+      display: flex; gap: var(--space-s);
+    }
+    .btn {
+      flex: 1; padding: 10px 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-m);
+      background: transparent;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 11px; font-weight: 400;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      min-height: 40px; /* touch target */
+    }
+    .btn:hover {
+      background: rgba(255,255,255,0.04);
+      color: var(--text-primary);
+      border-color: var(--border-hover);
+    }
+    .btn:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+    .btn-primary {
+      background: var(--surface-raised);
+      color: var(--text-primary);
+      border-color: var(--border-hover);
+    }
+
+    /* ── Info Button ── */
+    .panel-title-group {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .info-btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 24px; height: 24px;
+      background: none; border: none;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      border-radius: 50%;
+      transition: color 0.2s, background 0.2s;
+      padding: 0;
+    }
+    .info-btn:hover {
+      color: var(--text-secondary);
+      background: rgba(255,255,255,0.06);
+    }
+    .info-btn:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
+    /* ── Modal — Bento Grid ── */
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      z-index: 500;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(6px);
+      justify-content: center;
+      align-items: flex-start;
+      padding: 80px var(--space-l) var(--space-xl);
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .modal-overlay[aria-hidden="false"] {
+      display: flex;
+    }
+
+    @media (max-width: 680px) {
+      .modal-overlay {
+        padding: 40vh var(--space-m) var(--space-l);
+        align-items: flex-start;
+        background: linear-gradient(
+          to bottom,
+          rgba(0,0,0,0.0) 0%,
+          rgba(0,0,0,0.4) 30%,
+          rgba(0,0,0,0.7) 50%,
+          rgba(0,0,0,0.85) 100%
+        );
+        backdrop-filter: none;
+      }
+    }
+
+    .modal {
+      width: 100%; max-width: 460px;
+      background: transparent;
+      overflow: visible;
+      position: relative;
+      animation: modalIn 0.3s ease;
+      margin: 0 auto;
+      flex-shrink: 0;
+    }
+    @keyframes modalIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Close button — floats top right */
+    .modal-close {
+      position: absolute; top: -18px; right: -18px;
+      display: flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px;
+      background: var(--surface-solid);
+      border: 1px solid var(--border);
+      color: var(--text-tertiary);
+      cursor: pointer;
+      border-radius: 50%;
+      transition: color 0.2s, border-color 0.2s;
+      z-index: 2;
+    }
+    @media (max-width: 680px) {
+      .modal-close {
+        top: -12px; right: 4px;
+      }
+    }
+    .modal-close:hover {
+      color: var(--text-primary);
+      border-color: var(--border-hover);
+    }
+    .modal-close:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
+    /* Hero card — bio */
+    .bento-hero {
+      background: var(--surface-solid);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-l);
+      padding: var(--space-l) var(--space-l) var(--space-m);
+      margin-bottom: 8px;
+      position: relative;
+      animation: bentoUp 0.35s ease both;
+    }
+    .bento-name {
+      font-family: var(--font-sans);
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.025em;
+      line-height: 1.2;
+      margin-bottom: 4px;
+    }
+    .bento-role {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-tertiary);
+      letter-spacing: 0.04em;
+      margin-bottom: var(--space-m);
+    }
+    .bento-bio {
+      font-family: var(--font-sans);
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--text-secondary);
+    }
+
+    /* Bento grid */
+    .bento-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .bento-tile {
+      background: var(--surface-solid);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-m);
+      padding: 14px 14px 12px;
+      text-decoration: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 88px;
+      transition: border-color 0.2s, background 0.2s, transform 0.2s;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      animation: bentoUp 0.35s ease both;
+    }
+    .bento-tile:nth-child(1) { animation-delay: 0.04s; }
+    .bento-tile:nth-child(2) { animation-delay: 0.08s; }
+    .bento-tile:nth-child(3) { animation-delay: 0.12s; }
+    .bento-tile:nth-child(4) { animation-delay: 0.16s; }
+    .bento-tile:hover {
+      border-color: var(--border-hover);
+      background: var(--surface-raised);
+      transform: translateY(-2px);
+    }
+    .bento-tile:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
+    .bento-tile-icon {
+      display: flex;
+      align-items: center;
+      line-height: 1;
+      margin-bottom: 8px;
+      color: var(--text-primary);
+    }
+    .bento-tile-label {
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-primary);
+      line-height: 1.3;
+    }
+    .bento-tile-sub {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-tertiary);
+      letter-spacing: 0.02em;
+      margin-top: 2px;
+    }
+
+    /* Wide tile — spans 2 cols */
+    .bento-tile-wide {
+      grid-column: span 2;
+    }
+
+    /* Social row */
+    .bento-socials {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .bento-social {
+      background: var(--surface-solid);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-m);
+      padding: 12px;
+      text-decoration: none;
+      display: flex; align-items: center; justify-content: center;
+      gap: 8px;
+      transition: border-color 0.2s, background 0.2s, transform 0.2s;
+      animation: bentoUp 0.35s ease both;
+    }
+    .bento-social:nth-child(1) { animation-delay: 0.20s; }
+    .bento-social:nth-child(2) { animation-delay: 0.24s; }
+    .bento-social:nth-child(3) { animation-delay: 0.28s; }
+    .bento-social:hover {
+      border-color: var(--border-hover);
+      background: var(--surface-raised);
+      transform: translateY(-2px);
+    }
+    .bento-social:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+    .bento-social-name {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    /* Made with footer */
+    .bento-footer {
+      background: var(--surface-solid);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-m);
+      padding: 12px 14px;
+      animation: bentoUp 0.35s ease both;
+      animation-delay: 0.32s;
+    }
+    .bento-footer-label {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+      margin-bottom: 6px;
+    }
+    .bento-footer-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .bento-tag {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-secondary);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 3px 8px;
+      white-space: nowrap;
+    }
+
+    @keyframes bentoUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Toast — functional feedback */
+    .toast {
+      position: fixed; bottom: var(--space-l); left: 50%;
+      transform: translateX(-50%) translateY(8px);
+      background: var(--surface-raised);
+      border: 1px solid var(--border-hover);
+      border-radius: var(--radius-m);
+      padding: 10px 20px;
+      z-index: 200;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-primary);
+      opacity: 0;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      pointer-events: none;
+    }
+    .toast[aria-hidden="false"] {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ── Responsive: stack panel below on narrow screens ── */
+    @media (max-width: 680px) {
+      .panel {
+        position: fixed; bottom: 0; left: 0; right: 0;
+        top: auto; width: 100%;
+        max-height: 50vh;
+        border-radius: var(--radius-l) var(--radius-l) 0 0;
+      }
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#tuner-panel">Skip to controls</a>
+
+  <canvas id="dotCanvas" aria-hidden="true"></canvas>
+
+  <main class="demo">
+    <div class="card" data-swarm="true" role="presentation">
+      <span class="card-label"><span class="desktop-only">Hover</span><span class="mobile-only">Tap</span> to attract</span>
+      <span class="card-hint">dots cluster to this element</span>
+    </div>
+  </main>
+
+  <aside class="panel" id="tuner-panel" role="region" aria-label="Swarm parameter controls">
+    <div class="panel-header" id="panelToggle" role="button" tabindex="0" aria-expanded="true" aria-controls="panelBody">
+      <span class="panel-title-group">
+        <span class="panel-title">Swarm Tuner</span>
+        <button class="info-btn" id="infoBtn" type="button" aria-label="About Swarm Tuner" title="About">
+          <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm16-40a8,8,0,0,1-8,8,16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40A8,8,0,0,1,144,176ZM112,84a12,12,0,1,1,12,12A12,12,0,0,1,112,84Z"></path></svg>
+        </button>
+      </span>
+      <span class="panel-toggle" id="toggleIcon" aria-hidden="true">&#8250;</span>
+    </div>
+    <div class="panel-scroll">
+      <div class="panel-body" id="panelBody">
+
+        <div class="section">
+          <div class="section-title" id="grid-heading">Grid</div>
+          <div role="group" aria-labelledby="grid-heading">
+            <div class="ctrl">
+              <label class="ctrl-label" for="s-gridSpacing">Spacing</label>
+              <input type="range" id="s-gridSpacing" min="10" max="40" step="1" data-key="gridSpacing" aria-describedby="v-gridSpacing">
+              <span class="ctrl-value" id="v-gridSpacing"></span>
+            </div>
+            <div class="ctrl">
+              <label class="ctrl-label" for="s-dotRadius">Dot size</label>
+              <input type="range" id="s-dotRadius" min="0.3" max="3" step="0.1" data-key="dotRadius" aria-describedby="v-dotRadius">
+              <span class="ctrl-value" id="v-dotRadius"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title" id="cursor-heading">Cursor</div>
+          <div role="group" aria-labelledby="cursor-heading">
+            <div class="ctrl-toggle">
+              <label class="ctrl-label" id="repel-label">Repel</label>
+              <button class="toggle-switch" id="repelToggle" type="button" role="switch" aria-checked="false" aria-labelledby="repel-label"></button>
+            </div>
+            <div class="ctrl">
+              <label class="ctrl-label" for="s-attractRadius">Radius</label>
+              <input type="range" id="s-attractRadius" min="50" max="500" step="10" data-key="attractRadius" aria-describedby="v-attractRadius">
+              <span class="ctrl-value" id="v-attractRadius"></span>
+            </div>
+            <div class="ctrl">
+              <label class="ctrl-label" for="s-attractStrength">Strength</label>
+              <input type="range" id="s-attractStrength" min="0" max="0.1" step="0.001" data-key="attractStrength" aria-describedby="v-attractStrength">
+              <span class="ctrl-value" id="v-attractStrength"></span>
+            </div>
+            <div class="ctrl">
+              <label class="ctrl-label" for="s-orbitRadius">Orbit</label>
+              <input type="range" id="s-orbitRadius" min="0" max="80" step="1" data-key="orbitRadius" aria-describedby="v-orbitRadius">
+              <span class="ctrl-value" id="v-orbitRadius"></span>
+            </div>
+            <div class="ctrl">
+              <label class="ctrl-label" for="s-orbitJitter">Jitter</label>
+              <input type="range" id="s-orbitJitter" min="0" max="2" step="0.05" data-key="orbitJitter" aria-describedby="v-orbitJitter">
+              <span class="ctrl-value" id="v-orbitJitter"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title" id="card-heading">Card</div>
+          <div role="group" aria-labelledby="card-heading">
+            <div class="ctrl">
+              <label class="ctrl-label" for="s-cardAttractRadius">Radius</label>
+              <input type="range" id="s-cardAttractRadius" min="100" max="600" step="10" data-key="cardAttractRadius" aria-describedby="v-cardAttractRadius">
+              <span class="ctrl-value" id="v-cardAttractRadius"></span>
+            </div>
+            <div class="ctrl">
+              <label class="ctrl-label" for="s-cardAttractStrength">Strength</label>
+              <input type="range" id="s-cardAttractStrength" min="0.001" max="0.06" step="0.001" data-key="cardAttractStrength" aria-describedby="v-cardAttractStrength">
+              <span class="ctrl-value" id="v-cardAttractStrength"></span>
+            </div>
+            <div class="ctrl">
+              <label class="ctrl-label" for="s-cardSpread">Spread</label>
+              <input type="range" id="s-cardSpread" min="0.1" max="1.2" step="0.05" data-key="cardSpread" aria-describedby="v-cardSpread">
+              <span class="ctrl-value" id="v-cardSpread"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title" id="physics-heading">Physics</div>
+          <div role="group" aria-labelledby="physics-heading">
+            <div class="ctrl">
+              <label class="ctrl-label" for="s-friction">Friction</label>
+              <input type="range" id="s-friction" min="0.8" max="0.99" step="0.005" data-key="friction" aria-describedby="v-friction">
+              <span class="ctrl-value" id="v-friction"></span>
+            </div>
+            <div class="ctrl">
+              <label class="ctrl-label" for="s-returnStrength">Return</label>
+              <input type="range" id="s-returnStrength" min="0.001" max="0.04" step="0.001" data-key="returnStrength" aria-describedby="v-returnStrength">
+              <span class="ctrl-value" id="v-returnStrength"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title" id="visual-heading">Visual</div>
+          <div role="group" aria-labelledby="visual-heading">
+
+            <div class="color-trigger" data-color-key="idleColor">
+              <label class="ctrl-label">Idle color</label>
+              <button class="color-swatch-btn" type="button" aria-label="Choose idle dot color" aria-expanded="false">
+                <span class="color-swatch" id="swatch-idleColor"></span>
+                <span class="ctrl-value" id="v-idleColor"></span>
+              </button>
+              <div class="color-popover" role="dialog" aria-label="Idle color picker">
+                <div class="cp-sb-area"><div class="cp-sb-handle"></div></div>
+                <div class="cp-hue-wrap"><div class="cp-hue-handle"></div></div>
+                <div class="cp-swatches"></div>
+                <div class="cp-hex-row">
+                  <span class="cp-hex-label">#</span>
+                  <input type="text" class="cp-hex-input" maxlength="6" spellcheck="false" aria-label="Hex color value">
+                </div>
+              </div>
+            </div>
+
+            <div class="color-trigger" data-color-key="swarmColor">
+              <label class="ctrl-label">Swarm color</label>
+              <button class="color-swatch-btn" type="button" aria-label="Choose swarm dot color" aria-expanded="false">
+                <span class="color-swatch" id="swatch-swarmColor"></span>
+                <span class="ctrl-value" id="v-swarmColor"></span>
+              </button>
+              <div class="color-popover" role="dialog" aria-label="Swarm color picker">
+                <div class="cp-sb-area"><div class="cp-sb-handle"></div></div>
+                <div class="cp-hue-wrap"><div class="cp-hue-handle"></div></div>
+                <div class="cp-swatches"></div>
+                <div class="cp-hex-row">
+                  <span class="cp-hex-label">#</span>
+                  <input type="text" class="cp-hex-input" maxlength="6" spellcheck="false" aria-label="Hex color value">
+                </div>
+              </div>
+            </div>
+
+            <div class="ctrl">
+              <label class="ctrl-label" for="s-baseDotAlpha">Idle alpha</label>
+              <input type="range" id="s-baseDotAlpha" min="0.01" max="0.3" step="0.01" data-key="baseDotAlpha" aria-describedby="v-baseDotAlpha">
+              <span class="ctrl-value" id="v-baseDotAlpha"></span>
+            </div>
+            <div class="ctrl">
+              <label class="ctrl-label" for="s-swarmDotAlpha">Swarm alpha</label>
+              <input type="range" id="s-swarmDotAlpha" min="0.1" max="1" step="0.01" data-key="swarmDotAlpha" aria-describedby="v-swarmDotAlpha">
+              <span class="ctrl-value" id="v-swarmDotAlpha"></span>
+            </div>
+            <div class="ctrl">
+              <label class="ctrl-label" for="s-glowAlpha">Glow alpha</label>
+              <input type="range" id="s-glowAlpha" min="0" max="0.4" step="0.01" data-key="glowAlpha" aria-describedby="v-glowAlpha">
+              <span class="ctrl-value" id="v-glowAlpha"></span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="panel-actions">
+      <button class="btn" id="resetBtn" type="button">Reset</button>
+      <button class="btn btn-primary" id="exportBtn" type="button">Copy config</button>
+    </div>
+  </aside>
+
+  <!-- About Modal — Bento -->
+  <div class="modal-overlay" id="modalOverlay" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="bento-name">
+
+      <button class="modal-close" id="modalClose" type="button" aria-label="Close dialog">
+        <svg width="16" height="16" viewBox="0 0 256 256" fill="none" aria-hidden="true">
+          <path d="M200 56L56 200M200 200L56 56" stroke="currentColor" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+
+      <!-- Hero -->
+      <div class="bento-hero">
+        <div class="bento-name" id="bento-name">Lance Barrera</div>
+        <div class="bento-role">Product Designer · NYC</div>
+        <div class="bento-bio">Swarm Tuner is a visual playground I built to dial in the exact look and feel of particle systems. Want to see what else I'm working on?</div>
+      </div>
+
+      <!-- Project tiles -->
+      <div class="bento-grid">
+        <a href="https://www.lancebarrera.com/" class="bento-tile" data-link="portfolio" target="_blank" rel="noopener">
+          <span class="bento-tile-icon"><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M216,56H176V48a24,24,0,0,0-24-24H104A24,24,0,0,0,80,48v8H40A16,16,0,0,0,24,72V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V72A16,16,0,0,0,216,56ZM96,48a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96ZM216,72v41.61A184,184,0,0,1,128,136a184.07,184.07,0,0,1-88-22.38V72Zm0,128H40V131.64A200.19,200.19,0,0,0,128,152a200.25,200.25,0,0,0,88-20.37V200ZM104,112a8,8,0,0,1,8-8h32a8,8,0,0,1,0,16H112A8,8,0,0,1,104,112Z"></path></svg></span>
+          <div>
+            <div class="bento-tile-label">Portfolio</div>
+            <div class="bento-tile-sub">Work &amp; case studies</div>
+          </div>
+        </a>
+        <a href="https://protoprompt.netlify.app/" class="bento-tile" data-link="protoprompt" target="_blank" rel="noopener">
+          <span class="bento-tile-icon"><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M215.79,118.17a8,8,0,0,0-5-5.66L153.18,90.9l14.66-73.33a8,8,0,0,0-13.69-7l-112,120a8,8,0,0,0,3,13l57.63,21.61L88.16,238.43a8,8,0,0,0,13.69,7l112-120A8,8,0,0,0,215.79,118.17ZM109.37,214l10.47-52.38a8,8,0,0,0-5-9.06L62,132.71l84.62-90.66L136.16,94.43a8,8,0,0,0,5,9.06l52.8,19.8Z"></path></svg></span>
+          <div>
+            <div class="bento-tile-label">ProtoPrompt</div>
+            <div class="bento-tile-sub">AI prompts for faster prototypes</div>
+          </div>
+        </a>
+        <a href="https://design.quotesilike.com/" class="bento-tile" data-link="quotes" target="_blank" rel="noopener">
+          <span class="bento-tile-icon"><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M100,56H40A16,16,0,0,0,24,72v64a16,16,0,0,0,16,16h60v8a32,32,0,0,1-32,32,8,8,0,0,0,0,16,48.05,48.05,0,0,0,48-48V72A16,16,0,0,0,100,56Zm0,80H40V72h60ZM216,56H156a16,16,0,0,0-16,16v64a16,16,0,0,0,16,16h60v8a32,32,0,0,1-32,32,8,8,0,0,0,0,16,48.05,48.05,0,0,0,48-48V72A16,16,0,0,0,216,56Zm0,80H156V72h60Z"></path></svg></span>
+          <div>
+            <div class="bento-tile-label">Design Quotes I Like</div>
+            <div class="bento-tile-sub">Thinking that shapes the field</div>
+          </div>
+        </a>
+        <a href="https://apps.apple.com/us/app/jr-jams/id6758620465" class="bento-tile" data-link="jrjams" target="_blank" rel="noopener">
+          <span class="bento-tile-icon"><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M212.92,17.69a8,8,0,0,0-6.86-1.45l-128,32A8,8,0,0,0,72,56V166.08A36,36,0,1,0,88,196V110.25l112-28v51.83A36,36,0,1,0,216,164V24A8,8,0,0,0,212.92,17.69ZM52,216a20,20,0,1,1,20-20A20,20,0,0,1,52,216ZM88,93.75V62.25l112-28v31.5ZM180,184a20,20,0,1,1,20-20A20,20,0,0,1,180,184Z"></path></svg></span>
+          <div>
+            <div class="bento-tile-label">Jr Jams</div>
+            <div class="bento-tile-sub">A music app for kids · iPhone</div>
+          </div>
+        </a>
+      </div>
+
+      <!-- Social row -->
+      <div class="bento-socials">
+        <a href="https://x.com/LanceBarr3ra" class="bento-social" data-link="twitter" target="_blank" rel="noopener" aria-label="Twitter">
+          <span class="bento-social-name">Twitter</span>
+        </a>
+        <a href="https://www.linkedin.com/in/lance-barrera-65181b66/" class="bento-social" data-link="linkedin" target="_blank" rel="noopener" aria-label="LinkedIn">
+          <span class="bento-social-name">LinkedIn</span>
+        </a>
+        <a href="https://www.instagram.com/lance_barrera/" class="bento-social" data-link="instagram" target="_blank" rel="noopener" aria-label="Instagram">
+          <span class="bento-social-name">Instagram</span>
+        </a>
+      </div>
+
+      <!-- Made with -->
+      <div class="bento-footer">
+        <div class="bento-footer-label">Made with</div>
+        <div class="bento-footer-list">
+          <span class="bento-tag">HTML Canvas</span>
+          <span class="bento-tag">JavaScript</span>
+          <span class="bento-tag">Claude</span>
+          <span class="bento-tag">Phosphor Icons</span>
+          <span class="bento-tag">DM Mono</span>
+          <span class="bento-tag">Instrument Sans</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" aria-hidden="true"></div>
+
+  <script>
+    /* ═══════════════════════════════════════
+       DOT SWARM ENGINE
+       ═══════════════════════════════════════ */
+    const canvas = document.getElementById('dotCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const DEFAULTS = {
+      gridSpacing: 18,
+      dotRadius: 1,
+      attractRadius: 220,
+      attractStrength: 0.035,
+      repel: false,
+      friction: 0.92,
+      returnStrength: 0.008,
+      orbitRadius: 30,
+      orbitJitter: 0.6,
+      cardAttractRadius: 320,
+      cardAttractStrength: 0.007,
+      cardSpread: 0.55,
+      baseDotAlpha: 0.08,
+      swarmDotAlpha: 0.55,
+      glowAlpha: 0.15,
+      idleColor: '#ffffff',
+      swarmColor: '#ffffff',
+    };
+
+    const CONFIG = { ...DEFAULTS };
+
+    let W, H;
+    let mouse = { x: -9999, y: -9999, active: false };
+    let hoveredCards = [];
+    let needsReinit = false;
+    let dots = [];
+
+    function resize() {
+      const dpr = window.devicePixelRatio || 1;
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      initDots();
+    }
+
+    function initDots() {
+      dots = [];
+      const cols = Math.ceil(W / CONFIG.gridSpacing);
+      const rows = Math.ceil(H / CONFIG.gridSpacing);
+      const offsetX = (W - (cols - 1) * CONFIG.gridSpacing) / 2;
+      const offsetY = (H - (rows - 1) * CONFIG.gridSpacing) / 2;
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const homeX = offsetX + c * CONFIG.gridSpacing;
+          const homeY = offsetY + r * CONFIG.gridSpacing;
+          dots.push({
+            homeX, homeY,
+            x: homeX, y: homeY,
+            vx: 0, vy: 0,
+            orbitAngle: Math.random() * Math.PI * 2,
+            orbitSpeed: 0.005 + Math.random() * 0.015,
+          });
+        }
+      }
+    }
+
+    function updateHoveredCards() {
+      hoveredCards = [];
+      document.querySelectorAll('[data-swarm="true"]').forEach(card => {
+        if (card.matches(':hover')) {
+          const rect = card.getBoundingClientRect();
+          hoveredCards.push({
+            cx: rect.left + rect.width / 2,
+            cy: rect.top + rect.height / 2,
+            w: rect.width,
+            h: rect.height,
+          });
+        }
+      });
+    }
+
+    function updateDots() {
+      if (needsReinit) { initDots(); needsReinit = false; }
+
+      for (let i = 0; i < dots.length; i++) {
+        const dot = dots[i];
+        dot.orbitAngle += dot.orbitSpeed;
+        let attracted = false;
+
+        if (mouse.active) {
+          const dx = mouse.x - dot.homeX;
+          const dy = mouse.y - dot.homeY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < CONFIG.attractRadius) {
+            const force = 1 - (dist / CONFIG.attractRadius);
+            const eased = force * force * force;
+
+            if (CONFIG.repel) {
+              // Push dots to the edge of the attract radius — clean circular void
+              const homeDx = dot.homeX - mouse.x;
+              const homeDy = dot.homeY - mouse.y;
+              const homeDist = Math.sqrt(homeDx * homeDx + homeDy * homeDy) || 1;
+              const nx = homeDx / homeDist;
+              const ny = homeDy / homeDist;
+              // Target: sit right at the edge of the radius
+              const targetX = mouse.x + nx * CONFIG.attractRadius;
+              const targetY = mouse.y + ny * CONFIG.attractRadius;
+              dot.vx += (targetX - dot.x) * CONFIG.attractStrength * eased;
+              dot.vy += (targetY - dot.y) * CONFIG.attractStrength * eased;
+            } else {
+              const orbitR = CONFIG.orbitRadius * (1 - eased * 0.5);
+              const jitterX = Math.cos(dot.orbitAngle) * orbitR * CONFIG.orbitJitter;
+              const jitterY = Math.sin(dot.orbitAngle) * orbitR * CONFIG.orbitJitter;
+              dot.vx += (mouse.x + jitterX - dot.x) * CONFIG.attractStrength * eased;
+              dot.vy += (mouse.y + jitterY - dot.y) * CONFIG.attractStrength * eased;
+            }
+            attracted = true;
+          }
+        }
+
+        for (const card of hoveredCards) {
+          const dx = card.cx - dot.homeX;
+          const dy = card.cy - dot.homeY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < CONFIG.cardAttractRadius) {
+            const force = 1 - (dist / CONFIG.cardAttractRadius);
+            const eased = force * force;
+            const spreadX = Math.cos(dot.orbitAngle) * card.w * CONFIG.cardSpread;
+            const spreadY = Math.sin(dot.orbitAngle * 1.3) * card.h * CONFIG.cardSpread;
+
+            dot.vx += (card.cx + spreadX - dot.x) * CONFIG.cardAttractStrength * eased;
+            dot.vy += (card.cy + spreadY - dot.y) * CONFIG.cardAttractStrength * eased;
+            attracted = true;
+          }
+        }
+
+        if (!attracted) {
+          dot.vx += (dot.homeX - dot.x) * CONFIG.returnStrength;
+          dot.vy += (dot.homeY - dot.y) * CONFIG.returnStrength;
+        } else {
+          dot.vx += (dot.homeX - dot.x) * CONFIG.returnStrength * 0.15;
+          dot.vy += (dot.homeY - dot.y) * CONFIG.returnStrength * 0.15;
+        }
+
+        dot.vx *= CONFIG.friction;
+        dot.vy *= CONFIG.friction;
+        dot.x += dot.vx;
+        dot.y += dot.vy;
+      }
+    }
+
+    function hexToRgb(hex) {
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      return [r, g, b];
+    }
+
+    function render() {
+      ctx.clearRect(0, 0, W, H);
+      const idleRgb = hexToRgb(CONFIG.idleColor);
+      const swarmRgb = hexToRgb(CONFIG.swarmColor);
+
+      for (let i = 0; i < dots.length; i++) {
+        const dot = dots[i];
+        const dx = dot.x - dot.homeX;
+        const dy = dot.y - dot.homeY;
+        const displacement = Math.sqrt(dx * dx + dy * dy);
+
+        const t = Math.min(displacement / 60, 1);
+        const alpha = CONFIG.baseDotAlpha + (CONFIG.swarmDotAlpha - CONFIG.baseDotAlpha) * t;
+        const radius = CONFIG.dotRadius + t * 0.8;
+
+        const r = Math.round(idleRgb[0] + (swarmRgb[0] - idleRgb[0]) * t);
+        const g = Math.round(idleRgb[1] + (swarmRgb[1] - idleRgb[1]) * t);
+        const b = Math.round(idleRgb[2] + (swarmRgb[2] - idleRgb[2]) * t);
+
+        ctx.beginPath();
+        ctx.arc(dot.x, dot.y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        ctx.fill();
+
+        if (t > 0.4) {
+          ctx.beginPath();
+          ctx.arc(dot.x, dot.y, radius + 2, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${CONFIG.glowAlpha * (t - 0.4)})`;
+          ctx.fill();
+        }
+      }
+    }
+
+    function animate() {
+      updateHoveredCards();
+      updateDots();
+      render();
+      requestAnimationFrame(animate);
+    }
+
+    /* ═══════════════════════════════════════
+       CONTROL PANEL
+       ═══════════════════════════════════════ */
+    const sliders = document.querySelectorAll('input[type="range"]');
+
+    /* ── Custom Color Picker Engine ── */
+    const PRESETS = [
+      '#FFFFFF','#E8E8E8','#9A9A9A','#FF4444','#FF8844',
+      '#FFCC33','#44DD66','#33CCCC','#4488FF','#AA66FF',
+      '#FF66AA','#88FF44',
+    ];
+
+    function hsbToRgb(h, s, b) {
+      h = ((h % 360) + 360) % 360;
+      s /= 100; b /= 100;
+      const c = b * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = b - c;
+      let r, g, bl;
+      if (h < 60)       { r = c; g = x; bl = 0; }
+      else if (h < 120) { r = x; g = c; bl = 0; }
+      else if (h < 180) { r = 0; g = c; bl = x; }
+      else if (h < 240) { r = 0; g = x; bl = c; }
+      else if (h < 300) { r = x; g = 0; bl = c; }
+      else              { r = c; g = 0; bl = x; }
+      return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((bl + m) * 255)];
+    }
+
+    function rgbToHsb(r, g, b) {
+      r /= 255; g /= 255; b /= 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+      let h = 0, s = max === 0 ? 0 : d / max, br = max;
+      if (d !== 0) {
+        if (max === r) h = ((g - b) / d + 6) % 6;
+        else if (max === g) h = (b - r) / d + 2;
+        else h = (r - g) / d + 4;
+        h *= 60;
+      }
+      return [h, s * 100, br * 100];
+    }
+
+    function rgbToHex(r, g, b) {
+      return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+    }
+
+    function hexToRgbArr(hex) {
+      hex = hex.replace('#', '');
+      if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+      return [parseInt(hex.slice(0,2),16), parseInt(hex.slice(2,4),16), parseInt(hex.slice(4,6),16)];
+    }
+
+    function isValidHex(s) {
+      return /^[0-9a-fA-F]{6}$/.test(s.replace('#',''));
+    }
+
+    // Initialize each color picker instance
+    document.querySelectorAll('.color-trigger').forEach(trigger => {
+      const key = trigger.dataset.colorKey;
+      const btn = trigger.querySelector('.color-swatch-btn');
+      const swatch = trigger.querySelector('.color-swatch');
+      const popover = trigger.querySelector('.color-popover');
+      const sbArea = popover.querySelector('.cp-sb-area');
+      const sbHandle = popover.querySelector('.cp-sb-handle');
+      const hueWrap = popover.querySelector('.cp-hue-wrap');
+      const hueHandle = popover.querySelector('.cp-hue-handle');
+      const swatchWrap = popover.querySelector('.cp-swatches');
+      const hexInput = popover.querySelector('.cp-hex-input');
+      const valDisplay = document.getElementById('v-' + key);
+
+      let hsb = [0, 0, 100]; // current hsb state
+
+      // Build swatches
+      PRESETS.forEach(color => {
+        const s = document.createElement('button');
+        s.className = 'cp-swatch';
+        s.type = 'button';
+        s.style.background = color;
+        s.setAttribute('aria-label', 'Preset color ' + color);
+        s.addEventListener('click', () => {
+          setFromHex(color);
+        });
+        swatchWrap.appendChild(s);
+      });
+
+      function updateUI() {
+        const [r, g, b] = hsbToRgb(hsb[0], hsb[1], hsb[2]);
+        const hex = rgbToHex(r, g, b);
+        CONFIG[key] = hex;
+        swatch.style.background = hex;
+        if (valDisplay) valDisplay.textContent = hex;
+        hexInput.value = hex.slice(1).toUpperCase();
+
+        // SB area background = pure hue
+        const [hr, hg, hb] = hsbToRgb(hsb[0], 100, 100);
+        sbArea.style.background = `linear-gradient(to top, #000, transparent),
+          linear-gradient(to right, #fff, rgb(${hr},${hg},${hb}))`;
+
+        // Position handles
+        sbHandle.style.left = hsb[1] + '%';
+        sbHandle.style.top = (100 - hsb[2]) + '%';
+        hueHandle.style.left = (hsb[0] / 360 * 100) + '%';
+      }
+
+      function setFromHex(hex) {
+        if (!isValidHex(hex)) return;
+        const rgb = hexToRgbArr(hex);
+        hsb = rgbToHsb(...rgb);
+        updateUI();
+      }
+
+      // Toggle popover
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = popover.classList.contains('open');
+        // Close all others first
+        document.querySelectorAll('.color-popover.open').forEach(p => {
+          p.classList.remove('open');
+          p.closest('.color-trigger').querySelector('.color-swatch-btn').setAttribute('aria-expanded', 'false');
+        });
+        if (!isOpen) {
+          popover.classList.add('open');
+          btn.setAttribute('aria-expanded', 'true');
+        }
+      });
+
+      // SB area drag
+      function sbMove(e) {
+        const rect = sbArea.getBoundingClientRect();
+        const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+        hsb[1] = x * 100;
+        hsb[2] = (1 - y) * 100;
+        updateUI();
+      }
+      sbArea.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        sbArea.setPointerCapture(e.pointerId);
+        sbMove(e);
+        const move = (ev) => sbMove(ev);
+        const up = () => { sbArea.removeEventListener('pointermove', move); };
+        sbArea.addEventListener('pointermove', move);
+        sbArea.addEventListener('pointerup', up, { once: true });
+      });
+
+      // Hue strip drag
+      function hueMove(e) {
+        const rect = hueWrap.getBoundingClientRect();
+        const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        hsb[0] = x * 360;
+        updateUI();
+      }
+      hueWrap.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        hueWrap.setPointerCapture(e.pointerId);
+        hueMove(e);
+        const move = (ev) => hueMove(ev);
+        const up = () => { hueWrap.removeEventListener('pointermove', move); };
+        hueWrap.addEventListener('pointermove', move);
+        hueWrap.addEventListener('pointerup', up, { once: true });
+      });
+
+      // Hex input
+      hexInput.addEventListener('input', () => {
+        const v = hexInput.value.replace('#','');
+        if (isValidHex(v)) setFromHex('#' + v);
+      });
+      hexInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') hexInput.blur();
+      });
+
+      // Init from config
+      setFromHex(CONFIG[key]);
+
+      // Store ref for sync
+      trigger._cpUpdate = () => setFromHex(CONFIG[key]);
+    });
+
+    // Close popovers on outside click
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.color-trigger')) {
+        document.querySelectorAll('.color-popover.open').forEach(p => {
+          p.classList.remove('open');
+          p.closest('.color-trigger').querySelector('.color-swatch-btn').setAttribute('aria-expanded', 'false');
+        });
+      }
+    });
+    // Close on Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        document.querySelectorAll('.color-popover.open').forEach(p => {
+          p.classList.remove('open');
+          const btn = p.closest('.color-trigger').querySelector('.color-swatch-btn');
+          btn.setAttribute('aria-expanded', 'false');
+          btn.focus();
+        });
+      }
+    });
+
+    function syncSliders() {
+      sliders.forEach(slider => {
+        const key = slider.dataset.key;
+        slider.value = CONFIG[key];
+        const display = document.getElementById('v-' + key);
+        if (display) display.textContent = CONFIG[key];
+      });
+      // Sync color pickers
+      document.querySelectorAll('.color-trigger').forEach(t => {
+        if (t._cpUpdate) t._cpUpdate();
+      });
+    }
+
+    sliders.forEach(slider => {
+      slider.addEventListener('input', () => {
+        const key = slider.dataset.key;
+        const val = parseFloat(slider.value);
+        CONFIG[key] = val;
+        const display = document.getElementById('v-' + key);
+        if (display) display.textContent = val;
+        if (key === 'gridSpacing') needsReinit = true;
+      });
+    });
+
+    // Toggle
+    const panelBody = document.getElementById('panelBody');
+    const panelToggle = document.getElementById('panelToggle');
+    const toggleIcon = document.getElementById('toggleIcon');
+    const panelScroll = document.querySelector('.panel-scroll');
+    const panelActions = document.querySelector('.panel-actions');
+
+    // Repel toggle
+    const repelToggle = document.getElementById('repelToggle');
+    function syncRepelToggle() {
+      repelToggle.setAttribute('aria-checked', CONFIG.repel ? 'true' : 'false');
+    }
+    repelToggle.addEventListener('click', () => {
+      CONFIG.repel = !CONFIG.repel;
+      syncRepelToggle();
+    });
+
+    function togglePanel() {
+      const expanded = panelToggle.getAttribute('aria-expanded') === 'true';
+      panelToggle.setAttribute('aria-expanded', !expanded);
+      panelScroll.style.display = expanded ? 'none' : 'block';
+      panelActions.style.display = expanded ? 'none' : 'flex';
+      toggleIcon.classList.toggle('collapsed', expanded);
+      panelToggle.style.borderBottom = expanded ? 'none' : '';
+    }
+
+    panelToggle.addEventListener('click', togglePanel);
+    panelToggle.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); togglePanel(); }
+    });
+
+    // Reset
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      Object.assign(CONFIG, DEFAULTS);
+      syncSliders();
+      syncRepelToggle();
+      needsReinit = true;
+      showToast('Reset to defaults');
+    });
+
+    // Export
+    function copyToClipboard(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text).then(() => true).catch(() => false);
+      }
+      return Promise.resolve(false);
+    }
+
+    function copyFallback(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0';
+      document.body.appendChild(ta);
+      ta.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(ta);
+      return ok;
+    }
+
+    document.getElementById('exportBtn').addEventListener('click', () => {
+      const out = {};
+      for (const key of Object.keys(DEFAULTS)) out[key] = CONFIG[key];
+      const text = JSON.stringify(out, null, 2);
+      copyToClipboard(text).then(ok => {
+        if (ok) return showToast('Config copied');
+        if (copyFallback(text)) return showToast('Config copied');
+        showToast('Copy failed — try Ctrl+C manually');
+      });
+    });
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.setAttribute('aria-hidden', 'false');
+      clearTimeout(toast._timer);
+      toast._timer = setTimeout(() => toast.setAttribute('aria-hidden', 'true'), 2200);
+    }
+
+    /* ═══════════════════════════════════════
+       ABOUT MODAL
+       ═══════════════════════════════════════ */
+    const modalOverlay = document.getElementById('modalOverlay');
+    const infoBtn = document.getElementById('infoBtn');
+    const modalClose = document.getElementById('modalClose');
+
+    function openModal() {
+      modalOverlay.setAttribute('aria-hidden', 'false');
+      modalClose.focus();
+    }
+    function closeModal() {
+      modalOverlay.setAttribute('aria-hidden', 'true');
+      infoBtn.focus();
+    }
+
+    infoBtn.addEventListener('click', (e) => {
+      e.stopPropagation(); // don't toggle panel
+      openModal();
+    });
+
+    modalClose.addEventListener('click', closeModal);
+
+    modalOverlay.addEventListener('click', (e) => {
+      if (e.target === modalOverlay) closeModal();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modalOverlay.getAttribute('aria-hidden') === 'false') {
+        closeModal();
+      }
+    });
+
+    /* ═══════════════════════════════════════
+       EVENTS & INIT
+       ═══════════════════════════════════════ */
+    window.addEventListener('resize', resize);
+    window.addEventListener('mousemove', (e) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+      mouse.active = true;
+    });
+    window.addEventListener('mouseleave', () => { mouse.active = false; });
+
+    syncSliders();
+    syncRepelToggle();
+    resize();
+    animate();
+  </script>
+</body>
+</html>
