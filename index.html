@@ -169,13 +169,14 @@
     .panel-collapsible {
       max-height: 2000px;
       opacity: 1;
-      overflow: hidden;
+      overflow: visible;
       transition: max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1),
                   opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .panel-collapsible.collapsed {
       max-height: 0;
       opacity: 0;
+      overflow: hidden;
       transition: max-height 0.3s cubic-bezier(0.7, 0, 0.84, 0),
                   opacity 0.25s cubic-bezier(0.7, 0, 0.84, 0);
     }
@@ -901,8 +902,17 @@
       .panel {
         position: fixed; top: var(--space-m); left: var(--space-m); right: var(--space-m);
         bottom: auto; width: auto;
-        max-height: 50vh;
+        max-height: 85vh;
         border-radius: var(--radius-l);
+      }
+      .panel-collapsible {
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        max-height: calc(85vh - 48px);
+      }
+      .panel-scroll {
+        max-height: none;
+        overflow: visible;
       }
     }
 
