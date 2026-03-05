@@ -94,16 +94,18 @@
       font-family: var(--font-sans);
       font-size: 15px;
       font-weight: 500;
-      color: var(--text-secondary);
+      color: var(--text-primary);
       letter-spacing: -0.01em;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
       transition: color 0.3s;
     }
-    .card:hover .card-label { color: var(--text-primary); }
+    .card:hover .card-label { color: #fff; }
     .card-hint {
       font-family: var(--font-mono);
       font-size: 11px;
       color: var(--text-tertiary);
       letter-spacing: 0.03em;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
     }
 
     .mobile-only { display: none; }
@@ -142,8 +144,9 @@
     .panel-title {
       font-family: var(--font-sans);
       font-size: 13px; font-weight: 600;
-      color: var(--text-secondary);
+      color: var(--text-primary);
       letter-spacing: 0.02em;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
     }
     .panel-toggle {
       width: 24px; height: 24px;
@@ -160,6 +163,21 @@
       overflow-y: auto; flex: 1;
       scrollbar-width: thin;
       scrollbar-color: rgba(255,255,255,0.08) transparent;
+      max-height: calc(100vh - 180px);
+    }
+
+    .panel-collapsible {
+      max-height: 2000px;
+      opacity: 1;
+      overflow: hidden;
+      transition: max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+                  opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .panel-collapsible.collapsed {
+      max-height: 0;
+      opacity: 0;
+      transition: max-height 0.3s cubic-bezier(0.7, 0, 0.84, 0),
+                  opacity 0.25s cubic-bezier(0.7, 0, 0.84, 0);
     }
 
     .panel-body {
@@ -168,7 +186,7 @@
 
     /* Sections — generous vertical rhythm */
     .section {
-      padding: var(--space-s) var(--space-l) var(--space-m);
+      padding: var(--space-m) var(--space-l) var(--space-l);
     }
     .section + .section {
       border-top: 1px solid var(--border);
@@ -181,36 +199,37 @@
       color: var(--text-tertiary);
       margin-bottom: var(--space-m);
       padding-top: var(--space-xs);
+      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
     }
 
-    /* Control rows — 8px grid rhythm */
+    /* Control rows */
     .ctrl {
       display: grid;
       grid-template-columns: 80px 1fr 40px;
       align-items: center;
       gap: 0;
-      margin-bottom: 10px;
-      min-height: 28px;
+      margin-bottom: 14px;
+      min-height: 36px;
     }
     .ctrl:last-child { margin-bottom: 0; }
 
     /* Toggle switch */
     .ctrl-toggle {
       display: grid;
-      grid-template-columns: 80px 1fr;
+      grid-template-columns: 80px 1fr 40px;
       align-items: center;
-      margin-bottom: 10px;
-      min-height: 28px;
+      margin-bottom: 14px;
+      min-height: 36px;
     }
     .toggle-switch {
       position: relative;
-      width: 32px; height: 18px;
-      background: var(--slider-track);
-      border-radius: 9px;
+      width: 100%; height: 24px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 12px;
       cursor: pointer;
       border: none;
       padding: 0;
-      transition: background 0.2s;
+      transition: background 0.3s;
     }
     .toggle-switch[aria-checked="true"] {
       background: rgba(255,255,255,0.25);
@@ -219,14 +238,36 @@
       content: '';
       position: absolute;
       top: 3px; left: 3px;
-      width: 12px; height: 12px;
-      border-radius: 50%;
+      width: calc(50% - 3px); height: 18px;
+      border-radius: 9px;
       background: var(--text-secondary);
-      transition: transform 0.2s, background 0.2s;
+      transition: left 0.3s, background 0.3s;
+      background-image:
+        repeating-linear-gradient(
+          90deg,
+          transparent,
+          transparent 3px,
+          rgba(0,0,0,0.2) 3px,
+          rgba(0,0,0,0.2) 4px
+        );
+      background-size: 20px 8px;
+      background-position: center center;
+      background-repeat: no-repeat;
     }
     .toggle-switch[aria-checked="true"]::after {
-      transform: translateX(14px);
-      background: var(--text-primary);
+      left: 50%;
+      background-color: var(--text-primary);
+      background-image:
+        repeating-linear-gradient(
+          90deg,
+          transparent,
+          transparent 3px,
+          rgba(0,0,0,0.25) 3px,
+          rgba(0,0,0,0.25) 4px
+        );
+      background-size: 20px 8px;
+      background-position: center center;
+      background-repeat: no-repeat;
     }
     .toggle-switch:focus-visible {
       outline: 2px solid var(--focus-ring);
@@ -238,15 +279,15 @@
       display: grid;
       grid-template-columns: 80px 1fr;
       align-items: center;
-      margin-bottom: 10px;
-      min-height: 28px;
+      margin-bottom: 14px;
+      min-height: 36px;
     }
     .shape-options {
       display: flex;
-      gap: 4px;
+      gap: 6px;
     }
     .shape-btn {
-      width: 28px; height: 28px;
+      width: 32px; height: 32px;
       display: flex; align-items: center; justify-content: center;
       background: none;
       border: 1px solid var(--border);
@@ -278,6 +319,7 @@
       color: var(--text-secondary);
       line-height: 1;
       white-space: nowrap;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
     }
 
     .ctrl-value {
@@ -286,12 +328,13 @@
       text-align: right;
       font-variant-numeric: tabular-nums;
       line-height: 1;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
     }
 
     /* Custom range slider — WCAG compliant */
     input[type="range"] {
       -webkit-appearance: none; appearance: none;
-      width: 100%; height: 24px; /* large hit area */
+      width: 100%; height: 32px; /* generous touch target */
       background: transparent;
       cursor: pointer;
       margin: 0;
@@ -309,11 +352,11 @@
     }
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none; appearance: none;
-      width: 14px; height: 14px;
+      width: 18px; height: 18px;
       border-radius: 50%;
       background: var(--slider-thumb);
       border: none;
-      margin-top: -6px;
+      margin-top: -8px;
       transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
     input[type="range"]::-webkit-slider-thumb:hover {
@@ -326,7 +369,7 @@
       border: none;
     }
     input[type="range"]::-moz-range-thumb {
-      width: 14px; height: 14px;
+      width: 18px; height: 18px;
       border-radius: 50%;
       background: var(--slider-thumb);
       border: none;
@@ -339,27 +382,29 @@
     /* ── Custom Color Picker ── */
     .color-trigger {
       display: grid;
-      grid-template-columns: 80px 1fr;
+      grid-template-columns: 96px 1fr;
       align-items: center;
-      margin-bottom: 10px;
-      min-height: 28px;
+      margin-bottom: 14px;
+      min-height: 36px;
       position: relative;
     }
     .color-swatch-btn {
-      display: flex; align-items: center; gap: 8px;
+      display: grid; grid-template-columns: 1fr 62px;
+      align-items: center; gap: 10px;
       background: none; border: none; cursor: pointer;
-      padding: 0; font-family: var(--font-mono); font-size: 11px;
+      padding: 0;
+      font-family: var(--font-mono); font-size: 11px;
       color: var(--text-tertiary);
+      width: 100%;
     }
     .color-swatch-btn:focus-visible {
       outline: 2px solid var(--focus-ring); outline-offset: 2px;
       border-radius: 2px;
     }
     .color-swatch {
-      width: 28px; height: 16px;
-      border-radius: 3px;
-      border: 1px solid var(--border);
-      flex-shrink: 0;
+      flex: 1; height: 24px;
+      border-radius: var(--radius-s);
+      border: 1px solid rgba(255,255,255,0.15);
     }
 
     .color-popover {
@@ -486,7 +531,7 @@
       display: flex; gap: var(--space-s);
     }
     .btn {
-      flex: 1; padding: 10px 0;
+      flex: 1; padding: 12px 0;
       border: 1px solid var(--border);
       border-radius: var(--radius-m);
       background: transparent;
@@ -495,7 +540,7 @@
       font-size: 11px; font-weight: 400;
       cursor: pointer;
       transition: all 0.2s ease;
-      min-height: 40px; /* touch target */
+      min-height: 44px; /* touch target */
     }
     .btn:hover {
       background: rgba(255,255,255,0.04);
@@ -535,7 +580,8 @@
     }
     .export-menu.open { display: block; }
     .export-option {
-      display: block; width: 100%;
+      display: flex; align-items: center; gap: 10px;
+      width: 100%;
       padding: 11px 14px;
       background: none; border: none;
       font-family: var(--font-mono);
@@ -545,6 +591,9 @@
       cursor: pointer;
       transition: background 0.15s, color 0.15s;
       white-space: nowrap;
+    }
+    .export-option svg {
+      flex-shrink: 0;
     }
     .export-option:hover {
       background: rgba(255,255,255,0.04);
@@ -589,8 +638,8 @@
       background: rgba(0,0,0,0.55);
       backdrop-filter: blur(6px);
       justify-content: center;
-      align-items: flex-start;
-      padding: 80px var(--space-l) var(--space-xl);
+      align-items: center;
+      padding: var(--space-xl) var(--space-l);
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
     }
@@ -730,7 +779,7 @@
       align-items: center;
       line-height: 1;
       margin-bottom: 8px;
-      color: var(--text-primary);
+      color: var(--text-tertiary);
     }
     .bento-tile-label {
       font-family: var(--font-sans);
@@ -888,6 +937,7 @@
       </span>
       <span class="panel-toggle" id="toggleIcon" aria-hidden="true">&#8250;</span>
     </div>
+    <div class="panel-collapsible" id="panelCollapsible">
     <div class="panel-scroll">
       <div class="panel-body" id="panelBody">
 
@@ -930,6 +980,7 @@
             <div class="ctrl-toggle">
               <label class="ctrl-label" id="repel-label">Repel</label>
               <button class="toggle-switch" id="repelToggle" type="button" role="switch" aria-checked="false" aria-labelledby="repel-label"></button>
+              <span class="ctrl-value" id="v-repel">Off</span>
             </div>
             <div class="ctrl">
               <label class="ctrl-label" for="s-attractRadius">Radius</label>
@@ -1072,11 +1123,12 @@
       <div class="export-wrap">
         <button class="btn btn-primary" id="exportBtn" type="button" aria-expanded="false" aria-controls="exportMenu">Export</button>
         <div class="export-menu" id="exportMenu" role="menu">
-          <button class="export-option" id="exportHTML" type="button" role="menuitem">Download HTML file</button>
-          <button class="export-option" id="exportEmbed" type="button" role="menuitem">Copy embed snippet</button>
-          <button class="export-option" id="exportJSON" type="button" role="menuitem">Copy JSON config</button>
+          <button class="export-option" id="exportHTML" type="button" role="menuitem" aria-label="Download HTML file"><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,82.34l-56-56A8,8,0,0,0,152,24H56A16,16,0,0,0,40,40V216a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V88A8,8,0,0,0,213.66,82.34ZM160,51.31,188.69,80H160ZM200,216H56V40h88V88a8,8,0,0,0,8,8h48V216Zm-42.34-61.66a8,8,0,0,1,0,11.32l-24,24a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L120,164.69V120a8,8,0,0,1,16,0v44.69l10.34-10.35A8,8,0,0,1,157.66,154.34Z"></path></svg>HTML file</button>
+          <button class="export-option" id="exportEmbed" type="button" role="menuitem" aria-label="Copy embed snippet"><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M184,64H40a8,8,0,0,0-8,8V216a8,8,0,0,0,8,8H184a8,8,0,0,0,8-8V72A8,8,0,0,0,184,64Zm-8,144H48V80H176ZM224,40V184a8,8,0,0,1-16,0V48H72a8,8,0,0,1,0-16H216A8,8,0,0,1,224,40Z"></path></svg>Embed snippet</button>
+          <button class="export-option" id="exportJSON" type="button" role="menuitem" aria-label="Copy JSON config"><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M184,64H40a8,8,0,0,0-8,8V216a8,8,0,0,0,8,8H184a8,8,0,0,0,8-8V72A8,8,0,0,0,184,64Zm-8,144H48V80H176ZM224,40V184a8,8,0,0,1-16,0V48H72a8,8,0,0,1,0-16H216A8,8,0,0,1,224,40Z"></path></svg>JSON config</button>
         </div>
       </div>
+    </div>
     </div>
   </aside>
 
@@ -1110,7 +1162,7 @@
           <span class="bento-tile-icon"><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M215.79,118.17a8,8,0,0,0-5-5.66L153.18,90.9l14.66-73.33a8,8,0,0,0-13.69-7l-112,120a8,8,0,0,0,3,13l57.63,21.61L88.16,238.43a8,8,0,0,0,13.69,7l112-120A8,8,0,0,0,215.79,118.17ZM109.37,214l10.47-52.38a8,8,0,0,0-5-9.06L62,132.71l84.62-90.66L136.16,94.43a8,8,0,0,0,5,9.06l52.8,19.8Z"></path></svg></span>
           <div>
             <div class="bento-tile-label">ProtoPrompt</div>
-            <div class="bento-tile-sub">AI prompts for faster prototypes</div>
+            <div class="bento-tile-sub">A prompt library for faster prototyping with AI</div>
           </div>
         </a>
         <a href="https://design.quotesilike.com/" class="bento-tile" data-link="quotes" target="_blank" rel="noopener">
@@ -1644,8 +1696,6 @@
     const panelBody = document.getElementById('panelBody');
     const panelToggle = document.getElementById('panelToggle');
     const toggleIcon = document.getElementById('toggleIcon');
-    const panelScroll = document.querySelector('.panel-scroll');
-    const panelActions = document.querySelector('.panel-actions');
 
     // Shape selector
     const shapeBtns = document.querySelectorAll('.shape-btn');
@@ -1667,17 +1717,19 @@
     const repelToggle = document.getElementById('repelToggle');
     function syncRepelToggle() {
       repelToggle.setAttribute('aria-checked', CONFIG.repel ? 'true' : 'false');
+      document.getElementById('v-repel').textContent = CONFIG.repel ? 'On' : 'Off';
     }
     repelToggle.addEventListener('click', () => {
       CONFIG.repel = !CONFIG.repel;
       syncRepelToggle();
     });
 
+    const panelCollapsible = document.getElementById('panelCollapsible');
+
     function togglePanel() {
       const expanded = panelToggle.getAttribute('aria-expanded') === 'true';
       panelToggle.setAttribute('aria-expanded', !expanded);
-      panelScroll.style.display = expanded ? 'none' : 'block';
-      panelActions.style.display = expanded ? 'none' : 'flex';
+      panelCollapsible.classList.toggle('collapsed', expanded);
       toggleIcon.classList.toggle('collapsed', expanded);
       panelToggle.style.borderBottom = expanded ? 'none' : '';
     }
