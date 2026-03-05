@@ -233,6 +233,46 @@
       outline-offset: 2px;
     }
 
+    /* Shape selector */
+    .ctrl-shape {
+      display: grid;
+      grid-template-columns: 80px 1fr;
+      align-items: center;
+      margin-bottom: 10px;
+      min-height: 28px;
+    }
+    .shape-options {
+      display: flex;
+      gap: 4px;
+    }
+    .shape-btn {
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-s);
+      color: var(--text-tertiary);
+      cursor: pointer;
+      padding: 0;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+    }
+    .shape-btn:hover {
+      border-color: var(--border-hover);
+      color: var(--text-secondary);
+    }
+    .shape-btn.active {
+      border-color: var(--border-hover);
+      background: rgba(255,255,255,0.06);
+      color: var(--text-primary);
+    }
+    .shape-btn:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+    .shape-btn svg {
+      width: 12px; height: 12px;
+    }
+
     .ctrl-label {
       font-size: 11px;
       color: var(--text-secondary);
@@ -854,6 +894,23 @@
         <div class="section">
           <div class="section-title" id="grid-heading">Grid</div>
           <div role="group" aria-labelledby="grid-heading">
+            <div class="ctrl-shape">
+              <label class="ctrl-label">Shape</label>
+              <div class="shape-options" role="radiogroup" aria-label="Dot shape">
+                <button class="shape-btn active" type="button" role="radio" aria-checked="true" data-shape="circle" aria-label="Circle">
+                  <svg viewBox="0 0 12 12" fill="currentColor"><circle cx="6" cy="6" r="4"/></svg>
+                </button>
+                <button class="shape-btn" type="button" role="radio" aria-checked="false" data-shape="square" aria-label="Square">
+                  <svg viewBox="0 0 12 12" fill="currentColor"><rect x="2" y="2" width="8" height="8"/></svg>
+                </button>
+                <button class="shape-btn" type="button" role="radio" aria-checked="false" data-shape="diamond" aria-label="Diamond">
+                  <svg viewBox="0 0 12 12" fill="currentColor"><polygon points="6,1 11,6 6,11 1,6"/></svg>
+                </button>
+                <button class="shape-btn" type="button" role="radio" aria-checked="false" data-shape="sparkle" aria-label="Sparkle">
+                  <svg viewBox="0 0 12 12" fill="currentColor"><polygon points="6,0 7,4.5 12,6 7,7.5 6,12 5,7.5 0,6 5,4.5"/></svg>
+                </button>
+              </div>
+            </div>
             <div class="ctrl">
               <label class="ctrl-label" for="s-gridSpacing">Spacing</label>
               <input type="range" id="s-gridSpacing" min="10" max="40" step="1" data-key="gridSpacing" aria-describedby="v-gridSpacing">
@@ -962,6 +1019,23 @@
                 <span class="ctrl-value" id="v-swarmColor"></span>
               </button>
               <div class="color-popover" role="dialog" aria-label="Swarm color picker">
+                <div class="cp-sb-area"><div class="cp-sb-handle"></div></div>
+                <div class="cp-hue-wrap"><div class="cp-hue-handle"></div></div>
+                <div class="cp-swatches"></div>
+                <div class="cp-hex-row">
+                  <span class="cp-hex-label">#</span>
+                  <input type="text" class="cp-hex-input" maxlength="6" spellcheck="false" aria-label="Hex color value">
+                </div>
+              </div>
+            </div>
+
+            <div class="color-trigger" data-color-key="bgColor">
+              <label class="ctrl-label">Background</label>
+              <button class="color-swatch-btn" type="button" aria-label="Choose background color" aria-expanded="false">
+                <span class="color-swatch" id="swatch-bgColor"></span>
+                <span class="ctrl-value" id="v-bgColor"></span>
+              </button>
+              <div class="color-popover" role="dialog" aria-label="Background color picker">
                 <div class="cp-sb-area"><div class="cp-sb-handle"></div></div>
                 <div class="cp-hue-wrap"><div class="cp-hue-handle"></div></div>
                 <div class="cp-swatches"></div>
@@ -1096,6 +1170,7 @@
     const DEFAULTS = {
       gridSpacing: 18,
       dotRadius: 1,
+      shape: 'circle',
       attractRadius: 220,
       attractStrength: 0.035,
       repel: false,
@@ -1111,6 +1186,7 @@
       glowAlpha: 0.15,
       idleColor: '#ffffff',
       swarmColor: '#ffffff',
+      bgColor: '#060608',
     };
 
     const CONFIG = { ...DEFAULTS };
@@ -1249,10 +1325,64 @@
       return [r, g, b];
     }
 
+    function drawShape(x, y, r, shape) {
+      switch (shape) {
+        case 'square':
+          ctx.rect(x - r, y - r, r * 2, r * 2);
+          break;
+        case 'diamond':
+          ctx.moveTo(x, y - r * 1.3);
+          ctx.lineTo(x + r, y);
+          ctx.lineTo(x, y + r * 1.3);
+          ctx.lineTo(x - r, y);
+          ctx.closePath();
+          break;
+        case 'triangle':
+          ctx.moveTo(x, y - r * 1.2);
+          ctx.lineTo(x + r * 1.1, y + r * 0.8);
+          ctx.lineTo(x - r * 1.1, y + r * 0.8);
+          ctx.closePath();
+          break;
+        case 'sparkle': {
+          const inner = r * 0.35;
+          for (let i = 0; i < 4; i++) {
+            const a = (i / 4) * Math.PI * 2 - Math.PI / 2;
+            const aNext = ((i + 0.5) / 4) * Math.PI * 2 - Math.PI / 2;
+            if (i === 0) ctx.moveTo(x + Math.cos(a) * r * 1.3, y + Math.sin(a) * r * 1.3);
+            else ctx.lineTo(x + Math.cos(a) * r * 1.3, y + Math.sin(a) * r * 1.3);
+            ctx.lineTo(x + Math.cos(aNext) * inner, y + Math.sin(aNext) * inner);
+          }
+          ctx.closePath();
+          break;
+        }
+        case 'cross': {
+          const w = r * 0.45;
+          ctx.moveTo(x - w, y - r);
+          ctx.lineTo(x + w, y - r);
+          ctx.lineTo(x + w, y - w);
+          ctx.lineTo(x + r, y - w);
+          ctx.lineTo(x + r, y + w);
+          ctx.lineTo(x + w, y + w);
+          ctx.lineTo(x + w, y + r);
+          ctx.lineTo(x - w, y + r);
+          ctx.lineTo(x - w, y + w);
+          ctx.lineTo(x - r, y + w);
+          ctx.lineTo(x - r, y - w);
+          ctx.lineTo(x - w, y - w);
+          ctx.closePath();
+          break;
+        }
+        default: // circle
+          ctx.arc(x, y, r, 0, Math.PI * 2);
+      }
+    }
+
     function render() {
-      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = CONFIG.bgColor;
+      ctx.fillRect(0, 0, W, H);
       const idleRgb = hexToRgb(CONFIG.idleColor);
       const swarmRgb = hexToRgb(CONFIG.swarmColor);
+      const shape = CONFIG.shape;
 
       for (let i = 0; i < dots.length; i++) {
         const dot = dots[i];
@@ -1269,13 +1399,13 @@
         const b = Math.round(idleRgb[2] + (swarmRgb[2] - idleRgb[2]) * t);
 
         ctx.beginPath();
-        ctx.arc(dot.x, dot.y, radius, 0, Math.PI * 2);
+        drawShape(dot.x, dot.y, radius, shape);
         ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
         ctx.fill();
 
         if (t > 0.4) {
           ctx.beginPath();
-          ctx.arc(dot.x, dot.y, radius + 2, 0, Math.PI * 2);
+          drawShape(dot.x, dot.y, radius + 2, shape);
           ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${CONFIG.glowAlpha * (t - 0.4)})`;
           ctx.fill();
         }
@@ -1378,6 +1508,7 @@
         swatch.style.background = hex;
         if (valDisplay) valDisplay.textContent = hex;
         hexInput.value = hex.slice(1).toUpperCase();
+        if (key === 'bgColor') document.body.style.background = hex;
 
         // SB area background = pure hue
         const [hr, hg, hb] = hsbToRgb(hsb[0], 100, 100);
@@ -1516,6 +1647,22 @@
     const panelScroll = document.querySelector('.panel-scroll');
     const panelActions = document.querySelector('.panel-actions');
 
+    // Shape selector
+    const shapeBtns = document.querySelectorAll('.shape-btn');
+    function syncShapeBtns() {
+      shapeBtns.forEach(btn => {
+        const isActive = btn.dataset.shape === CONFIG.shape;
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-checked', isActive);
+      });
+    }
+    shapeBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        CONFIG.shape = btn.dataset.shape;
+        syncShapeBtns();
+      });
+    });
+
     // Repel toggle
     const repelToggle = document.getElementById('repelToggle');
     function syncRepelToggle() {
@@ -1545,6 +1692,7 @@
       Object.assign(CONFIG, DEFAULTS);
       syncSliders();
       syncRepelToggle();
+      syncShapeBtns();
       needsReinit = true;
       showToast('Reset to defaults');
     });
@@ -1725,6 +1873,7 @@ resize();loop();
 
     syncSliders();
     syncRepelToggle();
+    syncShapeBtns();
     // Start collapsed on mobile
     if (window.innerWidth <= 680) {
       togglePanel();
